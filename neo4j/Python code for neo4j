@@ -1,0 +1,81 @@
+from py2neo import Graph, Node, Relationship
+import pika
+import time
+import random
+
+# Neo4j functions
+
+def create_neo4j_connection(uri, username, password):
+    graph = Graph(uri, auth=(username, password))
+    print("Connected to Neo4j")
+    return graph
+
+def create_sensor_reading_node(graph, humidity, temperature, carbon_dioxide):
+    reading_node = Node("Reading",
+                        humidity=humidity,
+                        temperature=temperature,
+                        carbon_dioxide=carbon_dioxide,
+                        timestamp=time.strftime('%Y-%m-%d %H:%M:%S'))
+    graph.create(reading_node)
+    print("Created node in Neo4j")
+
+# RabbitMQ functions
+
+def connect_to_rabbitmq(host, username, password):
+    credentials = pika.PlainCredentials(username, password)
+    parameters = pika.ConnectionParameters(host=host, credentials=credentials)
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    print("Connected to RabbitMQ")
+    return connection, channel
+
+def publish_to_rabbitmq(channel, exchange_name, routing_key, message):
+    channel.basic_publish(exchange=exchange_name, routing_key=routing_key, body=message)
+    print(f"Sent message to RabbitMQ: {message}")
+
+# Data generation function
+
+def generate_fake_sensor_data():
+    humidity = random.uniform(30.0, 60.0)  # Fake humidity data
+    temperature = random.uniform(15.0, 30.0)  # Fake temperature data
+    carbon_dioxide = random.uniform(400.0, 800.0)  # Fake CO2 data
+    return humidity, temperature, carbon_dioxide
+
+
+def main():
+    # Neo4j connection parameters
+    neo4j_uri = "bolt://localhost:7687"
+    neo4j_username = "neo4j"
+    neo4j_password = "password"
+
+    graph = create_neo4j_connection(neo4j_uri, neo4j_username, neo4j_password)
+
+    # RabbitMQ connection parameters
+    rabbitmq_host = "localhost"
+    rabbitmq_username = "user"
+    rabbitmq_password = "password"
+    exchange_name = "sensor_data_exchange_neo4j"
+    routing_key = "sensor_data_neo4j"
+
+    rabbitmq_connection, rabbitmq_channel = connect_to_rabbitmq(rabbitmq_host, rabbitmq_username, rabbitmq_password)
+
+    try:
+        while True:
+            humidity, temperature, carbon_dioxide = generate_fake_sensor_data()
+
+            create_sensor_reading_node(graph, humidity, temperature, carbon_dioxide)
+
+            message = f"{{'humidity': {humidity}, 'temperature': {temperature}, 'carbon_dioxide': {carbon_dioxide}}}"
+
+            publish_to_rabbitmq(rabbitmq_channel, exchange_name, routing_key, message)
+
+            time.sleep(5)  
+    except KeyboardInterrupt:
+        print("Live storage and messaging stopped")
+
+    finally:
+        if rabbitmq_connection:
+            rabbitmq_connection.close()
+
+if __name__ == "__main__":
+    main()
