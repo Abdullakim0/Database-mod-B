@@ -1,0 +1,96 @@
+import pymongo
+import pika
+import time
+import random
+
+# MongoDB functions
+
+def create_mongodb_connection(host, port, username, password, db_name):
+    # Construct MongoDB URI with credentials
+    if username and password:
+        mongo_uri = f"mongodb://{username}:{password}@{host}:{port}/{db_name}"
+    else:
+        mongo_uri = f"mongodb://{host}:{port}/{db_name}"
+    
+    client = pymongo.MongoClient(mongo_uri)
+    db = client[db_name]
+    print("Connected to MongoDB")
+    return db
+
+def insert_reading_to_mongodb(db, humidity, temperature, carbon_dioxide):
+    readings_collection = db["readings"]
+    data = {
+        "humidity": humidity,
+        "temperature": temperature,
+        "carbon_dioxide": carbon_dioxide,
+        "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+    }
+    result = readings_collection.insert_one(data)
+    print(f"Inserted reading into MongoDB with id: {result.inserted_id}")
+
+# RabbitMQ functions
+
+def connect_to_rabbitmq(host, username, password):
+    credentials = pika.PlainCredentials(username, password)
+    parameters = pika.ConnectionParameters(host=host, credentials=credentials)
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    print("Connected to RabbitMQ")
+    return connection, channel
+
+def publish_to_rabbitmq(channel, exchange_name, routing_key, message):
+    channel.basic_publish(exchange=exchange_name, routing_key=routing_key, body=message)
+    print(f"Sent message to RabbitMQ: {message}")
+
+# Data generation function
+
+def generate_fake_sensor_data():
+    humidity = random.uniform(30.0, 60.0)  # Fake humidity data
+    temperature = random.uniform(15.0, 30.0)  # Fake temperature data
+    carbon_dioxide = random.uniform(400.0, 800.0)  # Fake CO2 data
+    return humidity, temperature, carbon_dioxide
+
+
+def main():
+    # MongoDB connection parameters
+    mongodb_host = "localhost"
+    mongodb_port = 27017
+    mongodb_username = ""  
+    mongodb_password = ""  
+    mongodb_db_name = "mongodb-1"
+
+    db = create_mongodb_connection(mongodb_host, mongodb_port, mongodb_username, mongodb_password, mongodb_db_name)
+
+    # RabbitMQ connection parameters
+    rabbitmq_host = "localhost"
+    rabbitmq_username = "user"
+    rabbitmq_password = "password"
+    exchange_name = "sensor_data_exchange_mongo"
+    routing_key = "sensor_data"
+
+    rabbitmq_connection, rabbitmq_channel = connect_to_rabbitmq(rabbitmq_host, rabbitmq_username, rabbitmq_password)
+
+    try:
+        while True:
+            humidity, temperature, carbon_dioxide = generate_fake_sensor_data()
+
+            # Insert data into MongoDB
+            insert_reading_to_mongodb(db, humidity, temperature, carbon_dioxide)
+
+            # Prepare message for RabbitMQ
+            message = f"{{'humidity': {humidity}, 'temperature': {temperature}, 'carbon_dioxide': {carbon_dioxide}}}"
+
+            # Publish message to RabbitMQ
+            publish_to_rabbitmq(rabbitmq_channel, exchange_name, routing_key, message)
+
+            time.sleep(5)  # Wait for 5 seconds before inserting/publishing the next reading
+
+    except KeyboardInterrupt:
+        print("Live storage and messaging stopped")
+
+    finally:
+        if rabbitmq_connection:
+            rabbitmq_connection.close()
+
+if __name__ == "__main__":
+    main()
