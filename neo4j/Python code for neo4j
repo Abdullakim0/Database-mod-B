@@ -1,26 +1,38 @@
-from py2neo import Graph, Node, Relationship
 import pika
 import time
 import random
+from py2neo import Graph, Node, Relationship
 
 # Neo4j functions
-
 def create_neo4j_connection(uri, username, password):
     graph = Graph(uri, auth=(username, password))
     print("Connected to Neo4j")
     return graph
 
+def create_or_get_plant_node(graph, plant_name):
+    plant_node = graph.nodes.match("Plant", name=plant_name).first()
+    if not plant_node:
+        plant_node = Node("Plant", name=plant_name)
+        graph.create(plant_node)
+        print(f"Created Plant node: {plant_name}")
+    return plant_node
+
 def create_sensor_reading_node(graph, humidity, temperature, carbon_dioxide):
-    reading_node = Node("Reading",
+    reading_node = Node("SensorReading",
                         humidity=humidity,
                         temperature=temperature,
                         carbon_dioxide=carbon_dioxide,
                         timestamp=time.strftime('%Y-%m-%d %H:%M:%S'))
     graph.create(reading_node)
-    print("Created node in Neo4j")
+    print("Created SensorReading node")
+    return reading_node
+
+def create_relationship(graph, plant_node, reading_node):
+    relationship = Relationship(plant_node, "HAS_READING", reading_node)
+    graph.create(relationship)
+    print(f"Created relationship: {plant_node['name']} HAS_READING {reading_node['timestamp']}")
 
 # RabbitMQ functions
-
 def connect_to_rabbitmq(host, username, password):
     credentials = pika.PlainCredentials(username, password)
     parameters = pika.ConnectionParameters(host=host, credentials=credentials)
@@ -29,25 +41,33 @@ def connect_to_rabbitmq(host, username, password):
     print("Connected to RabbitMQ")
     return connection, channel
 
+def setup_rabbitmq(channel, exchange_name):
+    # Declare the exchange
+    channel.exchange_declare(exchange=exchange_name, exchange_type='direct')
+    print(f"Exchange '{exchange_name}' declared")
+    
+    # Declare and bind the queue
+    queue_name = 'sensor_data_queue'
+    channel.queue_declare(queue=queue_name)
+    channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key='sensor_data')
+    print(f"Queue '{queue_name}' bound to exchange '{exchange_name}' with routing key 'sensor_data'")
+
 def publish_to_rabbitmq(channel, exchange_name, routing_key, message):
     channel.basic_publish(exchange=exchange_name, routing_key=routing_key, body=message)
     print(f"Sent message to RabbitMQ: {message}")
 
-# Data generation function
-
 def generate_fake_sensor_data():
-    humidity = random.uniform(30.0, 60.0)  # Fake humidity data
-    temperature = random.uniform(15.0, 30.0)  # Fake temperature data
-    carbon_dioxide = random.uniform(400.0, 800.0)  # Fake CO2 data
+    humidity = random.uniform(30.0, 60.0)  
+    temperature = random.uniform(15.0, 30.0)  
+    carbon_dioxide = random.uniform(400.0, 800.0)  
     return humidity, temperature, carbon_dioxide
-
 
 def main():
     # Neo4j connection parameters
     neo4j_uri = "bolt://localhost:7687"
     neo4j_username = "neo4j"
     neo4j_password = "password"
-
+    
     graph = create_neo4j_connection(neo4j_uri, neo4j_username, neo4j_password)
 
     # RabbitMQ connection parameters
@@ -55,21 +75,33 @@ def main():
     rabbitmq_username = "user"
     rabbitmq_password = "password"
     exchange_name = "sensor_data_exchange_neo4j"
-    routing_key = "sensor_data_neo4j"
+    routing_key = "sensor_data"
 
     rabbitmq_connection, rabbitmq_channel = connect_to_rabbitmq(rabbitmq_host, rabbitmq_username, rabbitmq_password)
+    setup_rabbitmq(rabbitmq_channel, exchange_name)
 
     try:
         while True:
             humidity, temperature, carbon_dioxide = generate_fake_sensor_data()
 
-            create_sensor_reading_node(graph, humidity, temperature, carbon_dioxide)
+            # Create Plant node (if not exists)
+            plant_name = "MyPlant"
+            plant_node = create_or_get_plant_node(graph, plant_name)
 
+            # Create SensorReading node
+            reading_node = create_sensor_reading_node(graph, humidity, temperature, carbon_dioxide)
+
+            # Create relationship between Plant and SensorReading
+            create_relationship(graph, plant_node, reading_node)
+
+            # Prepare message for RabbitMQ
             message = f"{{'humidity': {humidity}, 'temperature': {temperature}, 'carbon_dioxide': {carbon_dioxide}}}"
 
+            # Publish message to RabbitMQ
             publish_to_rabbitmq(rabbitmq_channel, exchange_name, routing_key, message)
 
             time.sleep(5)  
+
     except KeyboardInterrupt:
         print("Live storage and messaging stopped")
 
