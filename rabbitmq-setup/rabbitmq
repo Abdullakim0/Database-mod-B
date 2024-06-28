@@ -1,0 +1,16 @@
+RabbitMQ:
+
+Management Interface: Access the RabbitMQ management interface at http://localhost:15672.
+Use the credentials provided in the environment variables:
+Username: user
+Password: password
+RabbitMQ server: Access the server at localhost:5672.
+
+Python script to both MySQL for storage and RabbitMQ for messaging, we also have to create new exchange for our data so that we can see the process.
+
+Prerequisites:
+Make sure to have the pika package installed for RabbitMQ
+
+Integration with MongoDB and RabbitMQ is the same process as above with the Python script for storing sensor data and publishing to RabbitMQ.
+
+Rabbitmq is image inside docker and it has container with the help of Power shell we run Rabbitmq and enter authentication credentials to see the messaging information.
