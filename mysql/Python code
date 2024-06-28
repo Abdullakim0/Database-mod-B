@@ -1,0 +1,85 @@
+import mysql.connector
+from mysql.connector import Error
+import pika
+import time
+import random
+
+# MySQL functions
+
+def create_mysql_connection(host_name, user_name, user_password, db_name):
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host=host_name,
+            user=user_name,
+            password=user_password,
+            database=db_name
+        )
+        print("Connection to MySQL DB successful")
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    return connection
+
+def insert_reading_to_mysql(connection, humidity, temperature, carbon_dioxide):
+    cursor = connection.cursor()
+    query = "INSERT INTO readings (humidity, temperature, carbon_dioxide) VALUES (%s, %s, %s)"
+    values = (humidity, temperature, carbon_dioxide)
+    cursor.execute(query, values)
+    connection.commit()
+    print("Reading inserted into MySQL successfully")
+
+# RabbitMQ functions
+
+def connect_to_rabbitmq(host, username, password):
+    credentials = pika.PlainCredentials(username, password)
+    parameters = pika.ConnectionParameters(host=host, credentials=credentials)
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    print("Connected to RabbitMQ")
+    return connection, channel
+
+def publish_to_rabbitmq(channel, exchange_name, routing_key, message):
+    channel.basic_publish(exchange=exchange_name, routing_key=routing_key, body=message)
+    print(f"Sent message to RabbitMQ: {message}")
+
+
+def generate_fake_sensor_data():
+    humidity = random.uniform(30.0, 60.0)  # Fake humidity data
+    temperature = random.uniform(15.0, 30.0)  # Fake temperature data
+    carbon_dioxide = random.uniform(400.0, 800.0)  # Fake CO2 data
+    return humidity, temperature, carbon_dioxide
+
+
+def main():
+    # MySQL database connection parameters
+    mysql_connection = create_mysql_connection("127.0.0.1", "user", "password", "mydatabase")
+
+    # RabbitMQ connection parameters
+    rabbitmq_connection, rabbitmq_channel = connect_to_rabbitmq("localhost", "user", "password")
+    exchange_name = "sensor_data_exchange"
+    queue_name = "sensor_data_queue"
+    routing_key = "sensor_data"
+
+    try:
+        while True:
+            humidity, temperature, carbon_dioxide = generate_fake_sensor_data()
+            
+            insert_reading_to_mysql(mysql_connection, humidity, temperature, carbon_dioxide)
+            
+            message = f"{{'humidity': {humidity}, 'temperature': {temperature}, 'carbon_dioxide': {carbon_dioxide}}}"
+            
+            publish_to_rabbitmq(rabbitmq_channel, exchange_name, routing_key, message)
+            
+            time.sleep(5)  
+
+    except KeyboardInterrupt:
+        print("Live storage and messaging stopped")
+
+    finally:
+        if mysql_connection:
+            mysql_connection.close()
+        if rabbitmq_connection:
+            rabbitmq_connection.close()
+
+if __name__ == "__main__":
+    main()
