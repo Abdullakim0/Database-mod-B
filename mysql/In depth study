@@ -1,0 +1,30 @@
+To create a MySQL database with the required schema and implement live storage using Python, follow these steps:
+
+Create the MySQL Database and Table:
+
+First, connect to my MySQL server and create a database and table for storing the humidity, temperature, and carbon dioxide data.
+
+SQL command inside phpmyadmin server:
+
+CREATE DATABASE mydatabase;
+
+USE mydatabase;
+
+CREATE TABLE readings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    humidity FLOAT NOT NULL,
+    temperature FLOAT NOT NULL,
+    carbon_dioxide FLOAT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+Installation of the necessary Python packages using pip:
+'pip install mysql-connector-python'
+
+Python Script:
+
+The script uses mysql-connector-python to connect to the MySQL database.
+The create_connection function establishes a connection to the database.
+The insert_reading function inserts a new record into the readings table.
+The generate_fake_sensor_data function generates fake sensor data for humidity, temperature, and carbon dioxide.
+A loop runs indefinitely (until interrupted) to insert new readings into the database every 5 seconds.
