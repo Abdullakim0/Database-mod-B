@@ -1,0 +1,67 @@
+First I am gonna create YAML file in my docker/rabbitmq directory with the following entries:
+  version: '3'
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+
+  mysql:
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mydatabase
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+
+  neo4j:
+    image: neo4j:latest
+    environment:
+      NEO4J_AUTH: neo4j/password
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "8080:80"
+
+This entry automatically creates images, docker compose up creates container for every db in the docker.
+Save my YAML file into a file named docker-compose.yml.
+Open a terminal, navigate to the directory where docker-compose.yml file is located, and run:
+'docker-compose up -d'
+to check if it is working: 'docker-compose ps'
+
+Connecting to Each Service:
+
+RabbitMQ:
+
+Management Interface: Access the RabbitMQ management interface at http://localhost:15672.
+Using the credentials provided in the environment variables.
+
+phpMyAdmin: Access phpMyAdmin at http://localhost:8080
+
+MongoDB CLI: Using the MongoDB shell or any MongoDB GUI tool (e.g., MongoDB Compass) to connect.
+mongodb://localhost:27017
+
+Neo4j:
+
+Neo4j Browser: Accesses the Neo4j browser interface at http://localhost:7474.
+Username: neo4j
+Password: password
+Neo4j Bolt Protocol: Connects using the Bolt protocol at bolt://localhost:7687
