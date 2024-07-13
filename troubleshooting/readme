@@ -1,1 +1,23 @@
+# Granting Privileges in MySQL (Version 5.7.6 and later)
 
+To grant privileges to a user in MySQL (version 5.7.6 and later), follow these steps:
+
+Step 1: Log into MySQL
+First, access your MySQL container using the root user:
+
+docker exec -it <mysql-container-name> mysql -u root -p
+
+Step 2: Grant All Privileges
+Use the following command to grant all privileges to a specific user (user in this example) from any host (%):
+
+GRANT ALL PRIVILEGES ON *.* TO 'user'@'%' WITH GRANT OPTION;
+
+ 'user' is replaceable.
+
+Note: Granting ALL PRIVILEGES on *.* is generally not recommended for production environments due to security reasons. 
+
+Step 3: Flush Privileges
+After granting privileges, flush the privileges to apply the changes:
+
+FLUSH PRIVILEGES;
+These steps will enable to efficiently grant the requisite privileges to MySQL user, thereby resolving any ERROR 1064 syntax issues encountered. 
