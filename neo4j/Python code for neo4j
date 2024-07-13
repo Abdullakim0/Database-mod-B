@@ -47,10 +47,10 @@ def setup_rabbitmq(channel, exchange_name):
     print(f"Exchange '{exchange_name}' declared")
     
     # Declare and bind the queue
-    queue_name = 'sensor_data_queue'
+    queue_name = 'sensor_data_queue_neo4j'
     channel.queue_declare(queue=queue_name)
-    channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key='sensor_data')
-    print(f"Queue '{queue_name}' bound to exchange '{exchange_name}' with routing key 'sensor_data'")
+    channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key='sensor_data_neo4j')
+    print(f"Queue '{queue_name}' bound to exchange '{exchange_name}' with routing key 'sensor_data_neo4j'")
 
 def publish_to_rabbitmq(channel, exchange_name, routing_key, message):
     channel.basic_publish(exchange=exchange_name, routing_key=routing_key, body=message)
@@ -75,7 +75,7 @@ def main():
     rabbitmq_username = "user"
     rabbitmq_password = "password"
     exchange_name = "sensor_data_exchange_neo4j"
-    routing_key = "sensor_data"
+    routing_key = "sensor_data_neo4j"
 
     rabbitmq_connection, rabbitmq_channel = connect_to_rabbitmq(rabbitmq_host, rabbitmq_username, rabbitmq_password)
     setup_rabbitmq(rabbitmq_channel, exchange_name)
@@ -84,20 +84,19 @@ def main():
         while True:
             humidity, temperature, carbon_dioxide = generate_fake_sensor_data()
 
-            # Create Plant node (if not exists)
+            # Creates Plant node (if not exists)
             plant_name = "MyPlant"
             plant_node = create_or_get_plant_node(graph, plant_name)
 
-            # Create SensorReading node
+            # Creates SensorReading node
             reading_node = create_sensor_reading_node(graph, humidity, temperature, carbon_dioxide)
 
-            # Create relationship between Plant and SensorReading
+            # Creates relationship between Plant and SensorReading
             create_relationship(graph, plant_node, reading_node)
 
-            # Prepare message for RabbitMQ
+            # Prepares message for RabbitMQ
             message = f"{{'humidity': {humidity}, 'temperature': {temperature}, 'carbon_dioxide': {carbon_dioxide}}}"
 
-            # Publish message to RabbitMQ
             publish_to_rabbitmq(rabbitmq_channel, exchange_name, routing_key, message)
 
             time.sleep(5)  
