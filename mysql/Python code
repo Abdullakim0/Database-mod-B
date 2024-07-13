@@ -44,9 +44,9 @@ def publish_to_rabbitmq(channel, exchange_name, routing_key, message):
 
 
 def generate_fake_sensor_data():
-    humidity = random.uniform(30.0, 60.0)  # Fake humidity data
-    temperature = random.uniform(15.0, 30.0)  # Fake temperature data
-    carbon_dioxide = random.uniform(400.0, 800.0)  # Fake CO2 data
+    humidity = random.uniform(30.0, 60.0)  
+    temperature = random.uniform(15.0, 30.0)  
+    carbon_dioxide = random.uniform(400.0, 800.0)  
     return humidity, temperature, carbon_dioxide
 
 
@@ -56,9 +56,9 @@ def main():
 
     # RabbitMQ connection parameters
     rabbitmq_connection, rabbitmq_channel = connect_to_rabbitmq("localhost", "user", "password")
-    exchange_name = "sensor_data_exchange"
-    queue_name = "sensor_data_queue"
-    routing_key = "sensor_data"
+    exchange_name = "sensor_data_exchange_mysql"
+    queue_name = "sensor_data_queue_mysql"
+    routing_key = "sensor_data_mysql"
 
     try:
         while True:
